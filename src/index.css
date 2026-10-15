@@ -1,0 +1,9 @@
+@tailwind base;@tailwind components;@tailwind utilities;
+body{@apply text-slate-900 dark:text-slate-100 font-sans;background-color:#eef3f7;background-image:linear-gradient(#d5e0e8 1px,transparent 1px),linear-gradient(90deg,#d5e0e8 1px,transparent 1px);background-size:24px 24px}
+.dark body{background-color:#0f172a;background-image:linear-gradient(#1e293b 1px,transparent 1px),linear-gradient(90deg,#1e293b 1px,transparent 1px)}
+h1,h2,h3{@apply font-serif tracking-tight}
+.btn{@apply rounded-md bg-teal-600 px-4 py-2 font-semibold text-white shadow-sm hover:bg-teal-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400}
+.btn2{@apply rounded-md border border-slate-400 bg-white px-3 py-1.5 text-slate-900 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400}
+.card{@apply rounded-lg border border-slate-300 border-l-4 border-l-teal-500 bg-white p-4 shadow-sm dark:border-slate-700 dark:border-l-teal-400 dark:bg-slate-800}
+input,select,textarea{@apply rounded-md border border-slate-400 bg-white px-2 py-1 text-slate-900}
+a:focus-visible{@apply outline outline-2 outline-amber-400}
