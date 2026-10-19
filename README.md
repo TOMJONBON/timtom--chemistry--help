@@ -42,3 +42,5 @@ Personal AP Chemistry study tool. Not affiliated with or endorsed by College Boa
 4. Your site will be live at `https://<your-username>.github.io/<repo-name>/`.
 
 The site works under any repo name because it uses relative asset paths (`base: './'`) and hash-based routing.
+
+If the site displays a deployment message instead of the app, GitHub Pages is serving the source files directly. Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**, then rerun the **Deploy to GitHub Pages** workflow.
