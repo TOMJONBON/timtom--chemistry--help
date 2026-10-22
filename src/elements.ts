@@ -120,11 +120,93 @@ export type El={z:number;sym:string;name:string;mass:number;cat:string;cfg:strin
 export const elements:El[]=raw.split('\n').map(l=>{const [z,sym,name,mass,cat,cfg,ox]=l.split('|');return {z:+z,sym,name,mass:+mass,cat,cfg,ox:ox?ox.split(','):[]}});
 const mass=Object.fromEntries(elements.map(e=>[e.sym,e.mass]));
 export const bySym=Object.fromEntries(elements.map(e=>[e.sym,e]));
-export function molarMass(f:string):number{
-  const st:Record<string,number>[]=[{}];const re=/([A-Z][a-z]?)(\d*)|(\()|\)(\d*)/g;let m;
-  const add=(o:Record<string,number>,e:string,n:number)=>{o[e]=(o[e]||0)+n};
-  while((m=re.exec(f.replace(/\s/g,'')))){
-    if(m[1]){if(!mass[m[1]])return NaN;add(st[st.length-1],m[1],+m[2]||1)}
-    else if(m[3])st.push({});
-    else{const top=st.pop()!;if(!st.length)return NaN;for(const e in top)add(st[st.length-1],e,top[e]*(+m[4]||1))}}
-  return st.length===1&&Object.keys(st[0]).length?Object.entries(st[0]).reduce((s,[e,n])=>s+mass[e]*n,0):NaN}
+
+/** Parse a formula (nested parentheses, hydrates) into element counts. */
+export function parseFormula(input:string):Record<string,number>|null{
+  const formula=input.replace(/\s+/g,"");
+  if(!formula)return null;
+  const total:Record<string,number>={};
+  for(const part of formula.split(/[·*]/)){
+    const lead=part.match(/^(\d+(?:\.\d+)?)(.*)$/);
+    const multiplier=lead?Number(lead[1]):1;
+    const body=lead?lead[2]:part;
+    if(!body)return null;
+    const stack:Record<string,number>[]=[{}];
+    const re=/([A-Z][a-z]?)(\d*)|(\()|\)(\d*)/g;
+    let match:RegExpExecArray|null;
+    let consumed=0;
+    while((match=re.exec(body))){
+      consumed=match.index+match[0].length;
+      if(match[1]){
+        if(!mass[match[1]])return null;
+        const bucket=stack[stack.length-1];
+        bucket[match[1]]=(bucket[match[1]]||0)+(Number(match[2])||1);
+      }else if(match[3]){
+        stack.push({});
+      }else{
+        if(stack.length<2)return null;
+        const top=stack.pop()!;
+        const factor=Number(match[4])||1;
+        const parent=stack[stack.length-1];
+        for(const [sym,count] of Object.entries(top))parent[sym]=(parent[sym]||0)+count*factor;
+      }
+    }
+    if(consumed!==body.length||stack.length!==1)return null;
+    for(const [sym,count] of Object.entries(stack[0]))total[sym]=(total[sym]||0)+count*multiplier;
+  }
+  return Object.keys(total).length?total:null;
+}
+
+export function molarMass(formula:string):number{
+  const counts=parseFormula(formula);
+  if(!counts)return NaN;
+  return Object.entries(counts).reduce((sum,[sym,count])=>sum+(mass[sym]??0)*count,0);
+}
+
+export function composition(formula:string){
+  const counts=parseFormula(formula);
+  if(!counts)return null;
+  const total=Object.entries(counts).reduce((sum,[sym,count])=>sum+(mass[sym]??0)*count,0);
+  if(!total)return null;
+  return Object.entries(counts)
+    .map(([sym,count])=>({sym,count,mass:(mass[sym]??0)*count,pct:((mass[sym]??0)*count*100)/total}))
+    .sort((a,b)=>b.mass-a.mass);
+}
+
+export type Position={group:number;period:number;block:"s"|"p"|"d"|"f";row:number};
+export function positionOf(z:number):Position{
+  if(z===1)return {group:1,period:1,block:"s",row:1};
+  if(z===2)return {group:18,period:1,block:"s",row:1};
+  if(z<=10)return {group:z<=4?z-2:z+10,period:2,block:z<=4?"s":"p",row:2};
+  if(z<=18)return {group:z<=12?z-10:z,period:3,block:z<=12?"s":"p",row:3};
+  if(z<=36)return {group:z-18,period:4,block:z<=30?"d":"p",row:4};
+  if(z<=54)return {group:z-36,period:5,block:z<=48?"d":"p",row:5};
+  if(z<=56)return {group:z-54,period:6,block:"s",row:6};
+  if(z<=71)return {group:3+(z-57),period:6,block:"f",row:8};
+  if(z<=86)return {group:z-68,period:6,block:z<=80?"d":"p",row:6};
+  if(z<=88)return {group:z-86,period:7,block:"s",row:7};
+  if(z<=103)return {group:3+(z-89),period:7,block:"f",row:9};
+  return {group:z-100,period:7,block:z<=112?"d":"p",row:7};
+}
+
+export const CATEGORY_COLORS:Record<string,{bg:string;border:string;text:string}>={
+  "alkali metal":{bg:"#fde8d7",border:"#f59e0b",text:"#7c2d12"},
+  "alkaline earth metal":{bg:"#fef3c7",border:"#eab308",text:"#713f12"},
+  "transition metal":{bg:"#e0f2fe",border:"#38bdf8",text:"#075985"},
+  "post-transition metal":{bg:"#ede9fe",border:"#a78bfa",text:"#4c1d95"},
+  metalloid:{bg:"#d1fae5",border:"#34d399",text:"#065f46"},
+  nonmetal:{bg:"#dcfce7",border:"#4ade80",text:"#14532d"},
+  halogen:{bg:"#cffafe",border:"#22d3ee",text:"#155e75"},
+  "noble gas":{bg:"#fae8ff",border:"#e879f9",text:"#701a75"},
+  lanthanide:{bg:"#ffe4e6",border:"#fb7185",text:"#881337"},
+  actinide:{bg:"#fce7f3",border:"#f472b6",text:"#831843"},
+};
+
+export type TrendMode="none"|"radius"|"en"|"ie";
+/** Qualitative trend rank: larger = higher radius / EN / IE. Not measured data. */
+export function trendValue(el:El,mode:Exclude<TrendMode,"none">):number{
+  const {group,period}=positionOf(el.z);
+  if(mode==="radius")return period*18-group;
+  if(mode==="en")return group*6-period*9;
+  return group*5-period*8;
+}
